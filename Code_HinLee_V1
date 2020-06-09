@@ -1,0 +1,107 @@
+
+import STOM_higgs_tools
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+e = np.exp(1)       #defining Euler's Number
+num_sf = 3  # figures that we round to
+upper_bound = 10 #upperbound where it is deemed to be only due to background
+bins = 180 
+
+#SEARCH TABLE
+division_a =30
+division_l =30
+lamb_lower_bound = -28
+lamb_upper_bound = -32
+amp_lower_bound = 8000
+amp_upper_bound = 12000
+
+#n_signals = higgs particle decay gamma signals, default = 400
+#background = generate_background (N= deafult number of background values ~ 100,000)
+data = STOM_higgs_tools.generate_data(n_signals = 400)
+ 
+
+#2 Background Parameteristation................
+
+# for below 10 GeV, we assume the background is not affected 
+
+background_data = [i for i in data if i <= upper_bound]
+
+# to LINEAR REGRESSION, y axis = log (events), x axis = energies
+# we round off the data to the nearest 3dp
+
+rounded_background_data = []
+
+for num in background_data:
+    rounded_background_data.append(round(num,num_sf))
+    
+rounded_background_data.sort()   #sorts them in ascending order for next step
+
+def CountFrequency(my_list):    #function to obtain frequency of items in the list
+    
+    freq = {} 
+    energy = []
+    frequency = []
+    for item in my_list: 
+        if (item in freq): 
+            freq[item] += 1
+        else: 
+            freq[item] = 1
+  
+    for key, value in freq.items(): 
+        energy.append(key)
+        frequency.append(value)
+    return energy, frequency
+
+energy, frequency = CountFrequency(rounded_background_data) 
+ 
+#energy, frequency are lists where the energy corresponds to its frequency (frequency ie. number of events )
+
+log_frequency=[]
+
+for i in frequency:
+    log_frequency.append(math.log(i,e))
+
+fit_frequency= np.polyfit(energy,log_frequency, 1)              
+
+lamb = 1/fit_frequency [0]    #ie. lambda
+amplitude = len(background_data)/(25.985)  #to obtain amplitude
+print ('lambda equals', lamb)
+print ('amplitude equals',amplitude)
+
+#plotting function
+
+x = np.linspace(100,160,10000)
+N = STOM_higgs_tools.get_B_expectation(x,A = amplitude, lamb = -lamb)
+
+plt.plot(x,N)
+plt.hist(data, range = [100,160], bins = bins)
+plt.xlabel('Energy Level/ GeV')
+plt.ylabel('Number of events')
+plt.show()
+
+#2D search table for 
+
+
+def min_chisquare():
+    chi_square_table = []
+    amplitude_range = np.linspace(amp_lower_bound,amp_upper_bound,division_a)
+    lamb_range = np.linspace(lamb_lower_bound,lamb_upper_bound,division_l)
+    
+    for amp in amplitude_range:
+        for lamb in lamb_range:
+            chi_square_table.append(STOM_higgs_tools.get_B_chi(background_data, mass_range = [0,10], nbins = bins, A = amp, lamb=lamb))
+            #print('Chi-squared value for amplitude:',amp,'lamb:',lamb,'is',STOM_higgs_tools.get_B_chi(background_data, mass_range = [0,10], nbins = bins, A = amp, lamb=lamb))  
+            min_amp = (int((np.argmin(chi_square_table)+ 1)/division_a))*(amp_upper_bound-amp_lower_bound) + amp_lower_bound
+            min_lamb = ((np.argmin(chi_square_table)+ 1) % division_a )*(lamb_lower_bound-lamb_upper_bound/(division_l) + lamb_lower_bound)
+            min_chi = np.minimum(chi_square_table)
+    return min_chi, min_amp, min_lamb 
+min_chisquare()
+       
+
+
+
+
+
+
